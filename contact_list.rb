@@ -1,3 +1,4 @@
+#!/usr/bin/env ruby
 require_relative 'contact'
 require_relative 'phone_number'
 # Interfaces between a user and their contact list. Reads from and writes to standard I/O.
