@@ -32,8 +32,14 @@ class Contact
     def all
       # TODO: Return an Array of Contact instances made from the data in 'contacts.csv'.
       contacts = []
-      CSV.foreach('contacts.csv') do |contact|
-        contacts << Contact.new(contact[1], contact[2], contact[0])
+      CSV.foreach('contacts.csv') do |row|
+        contact = Contact.new(row[1], row[2], row[0])
+        row.drop(3).each do |number|
+          number = number.split(": ")
+          phone = PhoneNumber.new(number[0],number[1])
+          contact.add_number(phone)
+        end
+        contacts << contact
       end
       contacts
     end
@@ -64,7 +70,15 @@ class Contact
     def find(id)
       # TODO: Find the Contact in the 'contacts.csv' file with the matching id.
       CSV.foreach('contacts.csv') do |contact|
-        return Contact.new(contact[1],contact[2],contact[0]) if contact[0].to_i == id
+        if contact[0].to_i == id
+          match = Contact.new(contact[1],contact[2],contact[0])
+          contact.drop(3).each do |number|
+            number = number.split(": ")
+            phone = PhoneNumber.new(number[0],number[1])
+            match.add_number(phone)
+          end
+          return match
+        end
       end
       nil
     end
@@ -77,7 +91,13 @@ class Contact
       contacts = []
       CSV.foreach('contacts.csv') do |contact|
         if contact[1].match(/.*#{term}.*/) or contact[2].match(/.*#{term}.*/)
-          contacts << Contact.new(contact[1],contact[2],contact[0])
+          match = Contact.new(contact[1], contact[2], contact[0])
+          contact.drop(3).each do |number|
+            number = number.split(": ")
+            phone = PhoneNumber.new(number[0],number[1])
+            match.add_number(phone)
+          end
+          contacts << match
         end
       end
       contacts

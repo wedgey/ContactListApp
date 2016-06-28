@@ -40,7 +40,7 @@ class ContactList
       puts "What number would you like to add for #{name}'s #{label} number?"
       number = STDIN.gets.strip
       numbers << PhoneNumber.new(label, number)
-      puts "Would you like to add another phone number for #{name}?"
+      puts "Would you like to add another phone number for #{name}? y/n"
       phone_verify = STDIN.gets.strip.downcase
     end
     numbers
@@ -62,6 +62,10 @@ class ContactList
     count = 0
     Contact.all.each do |contact|
       puts "#{contact.id}: #{contact.name} (#{contact.email})"
+      contact.numbers.each do |number|
+        puts "\t" + number.to_s
+      end
+      
       count += 1
     end
     puts "---\n#{count} records total"
@@ -72,15 +76,21 @@ class ContactList
     if contact.nil?
       puts "Contact with #{id} was not found..."
     else
-      puts "Contact Id: #{contact.id}"
-      puts "Contact Name: #{contact.name}"
-      puts "Contact Email: #{contact.email}"
+      puts "Id: #{contact.id}"
+      puts "Name: #{contact.name}"
+      puts "Email: #{contact.email}"
+      contact.numbers.each do |number|
+        puts number.to_s
+      end
     end
   end
 
   def search_contact(term)
     contacts = Contact.search(term).each do |contact|
       puts "#{contact.id}: #{contact.name} (#{contact.email})"
+      contact.numbers.each do |number|
+        puts "\t" + number.to_s
+      end
     end
     puts "---"
     puts contacts.count > 1 ? "#{contacts.count} records total" : "#{contacts.count} record total"
