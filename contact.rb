@@ -1,4 +1,4 @@
-require 'csv'
+require 'pg'
 
 # Represents a person in an address book.
 # The ContactList class will work with Contact objects instead of interacting with the CSV file directly
@@ -10,12 +10,29 @@ class Contact
   # Creates a new contact object
   # @param name [String] The contact's name
   # @param email [String] The contact's email address
-  def initialize(name, email, id)
+  def initialize(name, email, id = nil)
     # TODO: Assign parameter values to instance variables.
     @name = name
     @email = email
     @id = id
     @numbers = []
+  end
+
+  def save
+    if id.nil? # Insert
+      res = Contact.connection.exec_params("INSERT INTO contacts (name, email) VALUES ($1, $2) RETURNING id;", [name, email])
+      @id = res[0]['id']
+      numbers.each do |num|
+        Contact.connection.exec_params("INSERT INTO phone_numbers (contact_id, phone_number, label) VALUES ($1, $2, $3);", [id, num.number, num.label])
+      end
+    else # Update
+      Contact.connection.exec_params("UPDATE contacts SET name = $1, email = $2 WHERE id = $3::int;", [name, email, id])
+    end
+  end
+
+  def destroy
+    Contact.connection.exec_params("DELETE FROM contacts WHERE id = $1::int;", [id])
+    Contact.connection.exec_params("DELETE FROM phone_numbers WHERE contact_id = $1::int;", [id])
   end
 
   # Adds a number to a contact
@@ -24,20 +41,34 @@ class Contact
     self.numbers << number
   end
 
+  def get_numbers
+    nums = Contact.connection.exec_params("SELECT label, phone_number FROM phone_numbers WHERE contact_id = $1;", [id])
+  end
+
   # Provides functionality for managing contacts in the csv file.
   class << self
+    @@connection = nil
+
+    def connection
+      @@connection = @connection || PG.connect(
+        host: 'localhost',
+        dbname: 'contact_list',
+        user: 'development',
+        password: 'development'
+        )
+    end
 
     # Opens 'contacts.csv' and creates a Contact object for each line in the file (aka each contact).
     # @return [Array<Contact>] Array of Contact objects
     def all
       # TODO: Return an Array of Contact instances made from the data in 'contacts.csv'.
       contacts = []
-      CSV.foreach('contacts.csv') do |row|
-        contact = Contact.new(row[1], row[2], row[0])
-        row.drop(3).each do |number|
-          number = number.split(": ")
-          phone = PhoneNumber.new(number[0],number[1])
-          contact.add_number(phone)
+      res = connection.exec_params("SELECT * FROM contacts ORDER BY id;")
+      res.each do |row|
+        contact = Contact.new(row['name'], row['email'], row['id'])
+        nums = contact.get_numbers
+        nums.each do |numbers|
+          contact.add_number(PhoneNumber.new(numbers['label'], numbers['phone_number']))
         end
         contacts << contact
       end
@@ -48,19 +79,13 @@ class Contact
     # @param name [String] the new contact's name
     # @param email [String] the contact's email
     def create(name, email, numbers = [])
-      exists = Contact.search_by_email(email)
-      return ['exist', Contact.search_by_email(email)] if exists
-      contact = Contact.new(name, email, (self.all.count + 1))
+      # exists = Contact.search_by_email(email)
+      # return ['exist', Contact.search_by_email(email)] if exists
+      contact = Contact.new(name, email)
       numbers.each do |number|
         contact.add_number(number)
       end
-      CSV.open('contacts.csv', 'a') do |csv_file|
-        nums = []
-        contact.numbers.each do |number|
-          nums << "#{number.to_s}"
-        end
-        csv_file.puts [contact.id, contact.name, contact.email] + nums
-      end
+      contact.save
       contact
     end
     
@@ -69,18 +94,15 @@ class Contact
     # @return [Contact, nil] the contact with the specified id. If no contact has the id, returns nil.
     def find(id)
       # TODO: Find the Contact in the 'contacts.csv' file with the matching id.
-      CSV.foreach('contacts.csv') do |contact|
-        if contact[0].to_i == id
-          match = Contact.new(contact[1],contact[2],contact[0])
-          contact.drop(3).each do |number|
-            number = number.split(": ")
-            phone = PhoneNumber.new(number[0],number[1])
-            match.add_number(phone)
-          end
-          return match
-        end
+      res = connection.exec_params("SELECT * FROM contacts WHERE id = $1::int;", [id])
+      if res.ntuples == 0
+        nil
+      else
+        contact = Contact.new(res[0]['name'], res[0]['email'], res[0]['id'])
+        nums = contact.get_numbers
+        nums.each { |num| contact.add_number(PhoneNumber.new(num['label'], num['phone_number'])) }
       end
-      nil
+      contact
     end
     
     # Search for contacts by either name or email.
@@ -89,16 +111,12 @@ class Contact
     def search(term)
       # TODO: Select the Contact instances from the 'contacts.csv' file whose name or email attributes contain the search term.
       contacts = []
-      CSV.foreach('contacts.csv') do |contact|
-        if contact[1].match(/.*#{term}.*/) or contact[2].match(/.*#{term}.*/)
-          match = Contact.new(contact[1], contact[2], contact[0])
-          contact.drop(3).each do |number|
-            number = number.split(": ")
-            phone = PhoneNumber.new(number[0],number[1])
-            match.add_number(phone)
-          end
-          contacts << match
-        end
+      res = connection.exec_params("SELECT * FROM contacts WHERE name LIKE '%' || $1 || '%' OR email LIKE '%' || $1 || '%' ORDER BY id;", [term])
+      res.each do |row|
+        contact = Contact.new(row['name'], row['email'], row['id'])
+        nums = contact.get_numbers
+        nums.each { |num| contact.add_number(PhoneNumber.new(num['label'], num['phone_number'])) }
+        contacts << contact
       end
       contacts
     end

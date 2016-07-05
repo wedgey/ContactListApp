@@ -18,6 +18,12 @@ class ContactList
     when 'search'
       # TODO: Implement searching for a contact
       search_contact(ARGV[1])
+    when 'update'
+      id = ARGV[1].to_i
+      id.is_a?(Integer) && id != 0 ? update_contact(id) : (puts "Please include the id of the contact.")
+    when 'destroy'
+      id = ARGV[1].to_i
+      id.is_a?(Integer) && id != 0 ? destroy_contact(id) : (puts "Please include the id of the contact.")
     else
       puts "That is an invalid command."
     end
@@ -29,6 +35,7 @@ class ContactList
     puts "\tlist\t - List all contacts"
     puts "\tshow\t - Show a contact"
     puts "\tsearch\t - Search contacts"
+    puts "\tupdate\t - Updates a contact's details"
   end
 
   def get_numbers(name)
@@ -54,9 +61,14 @@ class ContactList
     email = STDIN.gets.strip
     numbers = get_numbers(name)
 
-    contact = Contact.create(name, email, numbers)
-    return puts "This email has already been added under #{contact[1].id}: #{contact[1].name}" if contact.is_a? Array
+    begin
+      contact = Contact.create(name, email, numbers)
+    rescue PG::UniqueViolation
+      puts "This email has already been added!"
+    else
+    # return puts "This email has already been added under #{contact[1].id}: #{contact[1].name}" if contact.is_a? Array
     puts "#{contact.id}, #{contact.name} has been added to your list."
+    end
   end
 
   def list_contacts
@@ -75,7 +87,7 @@ class ContactList
   def show_contact(id)
     contact = Contact.find(id)
     if contact.nil?
-      puts "Contact with #{id} was not found..."
+      puts "Contact with ID: #{id} was not found..."
     else
       puts "Id: #{contact.id}"
       puts "Name: #{contact.name}"
@@ -95,6 +107,39 @@ class ContactList
     end
     puts "---"
     puts contacts.count > 1 ? "#{contacts.count} records total" : "#{contacts.count} record total"
+  end
+
+  def update_contact(id)
+    contact = Contact.find(id)
+    unless contact
+      puts "No such contact with that id!"
+      return
+    end
+    puts "What do you want to change the name: #{contact.name} to?"
+    name = STDIN.gets.strip
+    puts "What do you want to change the #{contact.name}'s email: #{contact.email} to?"
+    email = STDIN.gets.strip
+    # numbers = get_numbers(name)
+    old_name = contact.name
+    old_email = contact.email
+    contact.name = name
+    contact.email = email
+    begin
+      contact.save
+    rescue PG::UniqueViolation
+      puts "That email has already been used by someone else!"
+    else
+      puts "#{contact.id}, #{contact.name} has been updated in your list."
+    end
+  end
+
+  def destroy_contact(id)
+    contact = Contact.find(id)
+    unless contact
+      puts "No such contact with that id!"
+      return
+    end
+    contact.destroy
   end
 end
 

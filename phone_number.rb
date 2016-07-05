@@ -1,4 +1,5 @@
 class PhoneNumber
+  attr_reader :label, :number
 
   def initialize(label, number)
     @label = label
@@ -6,7 +7,7 @@ class PhoneNumber
   end
 
   def to_s
-    "#{@label}: #{@number}"
+    "#{label}: #{number}"
   end
 
 end
