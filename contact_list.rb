@@ -1,8 +1,24 @@
 #!/usr/bin/env ruby
+require 'active_record'
 require_relative 'contact'
 require_relative 'phone_number'
 # Interfaces between a user and their contact list. Reads from and writes to standard I/O.
 class ContactList
+
+  # Output messages from Active Record to standard out
+  # ActiveRecord::Base.logger = Logger.new(STDOUT)
+
+  ActiveRecord::Base.establish_connection(
+    adapter: 'postgresql',
+    database: 'contact_list',
+    username: 'development',
+    password: 'development',
+    host: 'localhost',
+    port: 5432,
+    pool: 5,
+    encoding: 'unicode',
+    min_messages: 'error'
+  )
 
   # TODO: Implement user interaction. This should be the only file where you use `puts` and `gets`.
   def initialize
@@ -71,16 +87,13 @@ class ContactList
   end
 
   def list_contacts
-    count = 0
-    Contact.all.each do |contact|
+    Contact.all.order(:id).each do |contact|
       puts "#{contact.id}: #{contact.name} (#{contact.email})"
-      contact.numbers.each do |number|
+      contact.phone_numbers.each do |number|
         puts "\t" + number.to_s
       end
-      
-      count += 1
     end
-    puts "---\n#{count} records total"
+    puts "---\n#{Contact.count} records total"
   end
 
   def show_contact(id)
@@ -91,16 +104,17 @@ class ContactList
       puts "Id: #{contact.id}"
       puts "Name: #{contact.name}"
       puts "Email: #{contact.email}"
-      contact.numbers.each do |number|
+      contact.phone_numbers.each do |number|
         puts number.to_s
       end
     end
   end
 
   def search_contact(term)
-    contacts = Contact.search(term).each do |contact|
+    term = "'%#{term}%'"
+    contacts = Contact.where("name LIKE #{term} OR email LIKE #{term}").order(:id).each do |contact|
       puts "#{contact.id}: #{contact.name} (#{contact.email})"
-      contact.numbers.each do |number|
+      contact.phone_numbers.each do |number|
         puts "\t" + number.to_s
       end
     end
