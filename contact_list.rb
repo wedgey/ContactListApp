@@ -66,7 +66,6 @@ class ContactList
     rescue PG::UniqueViolation
       puts "This email has already been added!"
     else
-    # return puts "This email has already been added under #{contact[1].id}: #{contact[1].name}" if contact.is_a? Array
     puts "#{contact.id}, #{contact.name} has been added to your list."
     end
   end
