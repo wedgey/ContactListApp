@@ -111,8 +111,8 @@ class ContactList
   end
 
   def search_contact(term)
-    term = "'%#{term}%'"
-    contacts = Contact.where("name LIKE #{term} OR email LIKE #{term}").order(:id).each do |contact|
+    term = "%#{term}%"
+    contacts = Contact.where("name LIKE ? OR email LIKE ?", term, term).order(:id).each do |contact|
       puts "#{contact.id}: #{contact.name} (#{contact.email})"
       contact.phone_numbers.each do |number|
         puts "\t" + number.to_s
